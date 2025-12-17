@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Home } from './components/Home';
-import { Game } from './components/Game';
-import { Result } from './components/Result';
-import { GameScreen } from './types';
+import { Home } from './components/Home.tsx';
+import { Game } from './components/Game.tsx';
+import { Result } from './components/Result.tsx';
+import { GameScreen } from './types.ts';
 
 const App: React.FC = () => {
   const [screen, setScreen] = useState<GameScreen>(GameScreen.HOME);

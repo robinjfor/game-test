@@ -10,8 +10,8 @@ import {
   BULLET_SIZE,
   BULLET_SPEED,
   SCORE_MAP
-} from '../constants';
-import { GameObject, Bullet, Spawner, ItemType } from '../types';
+} from '../constants.ts';
+import { GameObject, Bullet, Spawner, ItemType } from '../types.ts';
 
 interface GameProps {
   onFinish: (score: number) => void;

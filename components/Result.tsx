@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button } from './Button';
-import { WINNING_SCORE, COUPON_VALUE } from '../constants';
+import { Button } from './Button.tsx';
+import { WINNING_SCORE, COUPON_VALUE } from '../constants.ts';
 
 interface ResultProps {
   score: number;
