@@ -1,34 +1,41 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Sky Catch Challenge</title>
-    <!-- Tailwind CSS -->
+    
+    <!-- 1. 引入 Tailwind CSS (樣式) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM (UMD for browser) -->
+    <!-- 2. 引入 React 和 ReactDOM (核心庫) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
-    <!-- Babel Standalone (to compile JSX/TS in browser) -->
+    <!-- 3. 引入 Babel (讓瀏覽器能看懂 React 程式碼) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-      /* Prevent pull-to-refresh on mobile */
+      /* 防止手機上下拉動重新整理 */
       body {
         overscroll-behavior-y: contain;
         touch-action: none;
       }
-      /* Ensure full height for the app container */
+      /* 確保滿版 */
       html, body, #root {
         width: 100%;
         height: 100%;
         margin: 0;
         padding: 0;
+        overflow: hidden;
+      }
+      /* 禁止選取文字 */
+      .select-none {
+        user-select: none;
+        -webkit-user-select: none;
       }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
@@ -38,41 +45,38 @@
 }
 </script>
 </head>
-  <body class="bg-slate-900 text-white overflow-hidden">
+<body class="bg-slate-900 text-white">
     <div id="root"></div>
 
-    <!-- Main Application Code -->
+    <!-- 4. 主要程式碼邏輯 (type="text/babel") -->
     <script type="text/babel" data-presets="react,typescript">
       const { useState, useEffect, useRef, useCallback } = React;
 
-      // --- constants.ts ---
-      const GAME_DURATION = 30; // seconds
-      const WINNING_SCORE = 200;
-      const COUPON_VALUE = 50;
+      // ==========================================
+      // 1. 常數定義 (Constants)
+      // ==========================================
+      const GAME_DURATION = 30; // 遊戲時間 (秒)
+      const WINNING_SCORE = 200; // 目標分數
+      const COUPON_VALUE = 50; // 折價券面額
 
-      const CANVAS_WIDTH = 480; // Logical width
-      const CANVAS_HEIGHT = 800; // Logical height
+      // 畫布邏輯大小 (會自動縮放到螢幕)
+      const CANVAS_WIDTH = 480;
+      const CANVAS_HEIGHT = 800;
 
-      const PLAYER_WIDTH = 80;
+      const PLAYER_WIDTH = 100; // 雙手寬度
       const PLAYER_HEIGHT = 60;
-      const PLAYER_Y_OFFSET = 100; // Distance from bottom
+      const PLAYER_Y_OFFSET = 120; // 距離底部的距離
 
-      const ITEM_SIZE = 40;
-      const BULLET_SIZE = 10;
-      const BULLET_SPEED = 12;
+      const ITEM_SIZE = 45; // 掉落物大小
+      const BULLET_SIZE = 12; // 子彈大小
+      const BULLET_SPEED = 15; // 子彈速度
 
+      // 分數對照表
       const SCORE_MAP = {
         FOOD_BURGER: 20,
         FOOD_PIZZA: 20,
         ENEMY_X: -5,
         ENEMY_SKULL: -10,
-      };
-
-      // --- types.ts (Simulated for JS runtime) ---
-      const GameScreen = {
-        HOME: 'HOME',
-        PLAYING: 'PLAYING',
-        RESULT: 'RESULT',
       };
 
       const ItemType = {
@@ -82,7 +86,16 @@
         ENEMY_SKULL: 'ENEMY_SKULL',
       };
 
-      // --- components/Button.tsx ---
+      const GameScreen = {
+        HOME: 'HOME',
+        PLAYING: 'PLAYING',
+        RESULT: 'RESULT',
+      };
+
+      // ==========================================
+      // 2. 通用元件 (Components)
+      // ==========================================
+      
       const Button = ({ onClick, children, className = '', variant = 'primary' }) => {
         const baseStyle = "px-8 py-3 rounded-full font-bold text-lg transition-transform active:scale-95 shadow-lg select-none";
         
@@ -102,154 +115,157 @@
         );
       };
 
-      // --- components/Home.tsx ---
+      // ==========================================
+      // 3. 頁面元件: 首頁 (Home)
+      // ==========================================
       const Home = ({ onStart }) => {
         return (
-          <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-gradient-to-b from-sky-400 to-blue-600 text-center space-y-6">
-            <div className="space-y-2">
+          <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-gradient-to-b from-sky-400 to-blue-600 text-center space-y-6 select-none">
+            <div className="space-y-2 animate-bounce">
               <h1 className="text-4xl font-extrabold text-white drop-shadow-md">
                 接住美味
                 <br />
                 <span className="text-yellow-300">大作戰</span>
               </h1>
-              <p className="text-blue-100 text-sm">Challenge for Coupon!</p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 w-full max-w-sm">
-              <h2 className="text-xl font-bold mb-4 text-yellow-200">🎮 遊戲玩法</h2>
-              <ul className="text-left space-y-3 text-white/90 text-sm leading-relaxed">
-                <li className="flex items-start">
-                  <span className="mr-2 text-lg">👐</span>
-                  <span>左右移動雙手，接住美食！</span>
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 w-full max-w-sm shadow-xl">
+              <h2 className="text-xl font-bold mb-3 text-yellow-200 border-b border-white/20 pb-2">🎮 遊戲玩法</h2>
+              <ul className="text-left space-y-3 text-white/95 text-sm leading-relaxed font-medium">
+                <li className="flex items-center bg-black/20 p-2 rounded-lg">
+                  <span className="mr-3 text-2xl">👐</span>
+                  <span>左右滑動接住美食</span>
                 </li>
-                <li className="flex items-start">
-                  <span className="mr-2 text-lg">🍔</span>
-                  <span>接住美味食物 <b>+20分</b></span>
+                <li className="flex items-center bg-green-500/20 p-2 rounded-lg border border-green-400/30">
+                  <span className="mr-3 text-2xl">🍔</span>
+                  <span>美味食物 <b>+20分</b></span>
                 </li>
-                <li className="flex items-start">
-                  <span className="mr-2 text-lg">😈</span>
-                  <span>小心惡魔丟下的陷阱！</span>
+                <li className="flex items-center bg-red-500/20 p-2 rounded-lg border border-red-400/30">
+                  <span className="mr-3 text-2xl">❌</span>
+                  <span>陷阱扣分 (X: -5, 骷髏: -10)</span>
                 </li>
-                <li className="flex items-start">
-                  <span className="mr-2 text-lg">❌</span>
-                  <span>接到 X 扣 <b>5分</b>，骷髏頭 扣 <b>10分</b></span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2 text-lg">🔫</span>
-                  <span><b>點擊畫面</b>發射子彈消除壞東西！</span>
+                <li className="flex items-center bg-blue-500/20 p-2 rounded-lg border border-blue-400/30">
+                  <span className="mr-3 text-2xl">🔫</span>
+                  <span><b>點擊畫面</b>射擊消除壞東西！</span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-yellow-400/20 rounded-xl p-4 border border-yellow-400/50 animate-pulse">
-              <p className="font-bold text-yellow-100">
-                🏆 挑戰目標：超過 {WINNING_SCORE} 分
+            <div className="bg-gradient-to-r from-yellow-500/80 to-orange-500/80 rounded-xl p-4 border-2 border-yellow-200 shadow-lg transform scale-105">
+              <p className="font-bold text-white text-sm uppercase tracking-wider">
+                🏆 挑戰目標：{WINNING_SCORE} 分
               </p>
-              <p className="text-yellow-300 font-extrabold text-xl">
-                獲得 {COUPON_VALUE} 元折價券！
+              <p className="text-white font-black text-2xl mt-1">
+                贏取 ${COUPON_VALUE} 折價券！
               </p>
             </div>
 
-            <Button onClick={onStart} className="w-full max-w-xs shadow-xl shadow-blue-900/20">
-              開始遊戲 (30秒)
+            <Button onClick={onStart} className="w-full max-w-xs shadow-2xl shadow-blue-900/40 mt-4">
+              開始挑戰 (30秒)
             </Button>
           </div>
         );
       };
 
-      // --- components/Result.tsx ---
+      // ==========================================
+      // 4. 頁面元件: 結算頁 (Result)
+      // ==========================================
       const Result = ({ score, onRestart }) => {
         const isWinner = score >= WINNING_SCORE;
 
         return (
-          <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-gradient-to-b from-indigo-500 to-purple-800 text-center space-y-8">
+          <div className="flex flex-col items-center justify-center h-full w-full p-6 bg-gradient-to-b from-indigo-500 to-purple-800 text-center space-y-8 select-none">
             
             <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-white">遊戲結束</h2>
-              <div className="text-6xl font-black text-white drop-shadow-lg">
+              <h2 className="text-3xl font-bold text-white/80">遊戲結束</h2>
+              <div className="text-7xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]">
                 {score} <span className="text-2xl font-medium">分</span>
               </div>
             </div>
 
             {isWinner ? (
-              <div className="bg-yellow-500 text-white p-6 rounded-2xl shadow-xl transform rotate-1 border-4 border-yellow-300 w-full max-w-xs relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-white opacity-10 rotate-45 transform translate-y-10"></div>
-                <h3 className="text-2xl font-bold mb-2">🎉 恭喜達成！</h3>
-                <p className="mb-4">你太厲害了！這是你的獎勵</p>
-                <div className="bg-white text-slate-900 font-mono font-bold text-xl py-3 px-4 rounded-lg border-2 border-dashed border-slate-300">
+              <div className="bg-gradient-to-br from-yellow-300 to-yellow-600 text-white p-6 rounded-2xl shadow-2xl transform rotate-1 border-4 border-white w-full max-w-xs relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-full bg-white opacity-20 rotate-45 transform translate-y-10 group-hover:translate-y-0 transition-transform duration-700"></div>
+                <h3 className="text-3xl font-bold mb-2">🎉 恭喜達成！</h3>
+                <p className="mb-4 font-medium text-yellow-50">挑戰成功，這是您的獎勵</p>
+                <div className="bg-white text-slate-900 font-mono font-bold text-2xl py-4 px-4 rounded-lg border-2 border-dashed border-slate-400 shadow-inner">
                   ${COUPON_VALUE} 折價券
                 </div>
-                <p className="text-xs mt-2 opacity-80">*截圖此畫面以兌換</p>
+                <p className="text-xs mt-3 opacity-90 font-bold bg-black/10 py-1 rounded">* 請截圖此畫面以進行兌換 *</p>
               </div>
             ) : (
-              <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 w-full max-w-xs">
-                <div className="text-5xl mb-4">💪</div>
-                <h3 className="text-xl font-bold text-white mb-2">再接再厲！</h3>
-                <p className="text-indigo-200">
-                  只差一點點了！<br/>
-                  目標是 {WINNING_SCORE} 分喔。
+              <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 w-full max-w-xs shadow-xl">
+                <div className="text-6xl mb-4 animate-pulse">💪</div>
+                <h3 className="text-2xl font-bold text-white mb-2">再接再厲！</h3>
+                <p className="text-indigo-200 text-lg">
+                  距離 {WINNING_SCORE} 分<br/>
+                  只差一點點了！
                 </p>
               </div>
             )}
 
             <Button onClick={onRestart} variant={isWinner ? 'secondary' : 'primary'} className="w-full max-w-xs">
-              {isWinner ? '再玩一次' : '不服輸，再玩一次'}
+              {isWinner ? '太棒了，再玩一次' : '不服輸，再來一局！'}
             </Button>
           </div>
         );
       };
 
-      // --- components/Game.tsx ---
+      // ==========================================
+      // 5. 核心遊戲邏輯 (Game Engine)
+      // ==========================================
       const Game = ({ onFinish }) => {
         const canvasRef = useRef(null);
         
-        // Game State Refs (for Loop)
+        // 遊戲狀態 (使用 ref 避免 React 重複渲染導致的效能問題)
         const gameStateRef = useRef({
           score: 0,
           playerX: CANVAS_WIDTH / 2,
-          items: [],
-          bullets: [],
+          items: [], // 掉落物
+          bullets: [], // 子彈
           lastTime: 0,
           lastUiSyncTime: 0,
           timeLeft: GAME_DURATION,
           isPlaying: true,
         });
 
-        // Entities - Using a list to manage multiple spawners dynamically
+        // 生成器列表 (惡魔與廚師)
         const spawnersRef = useRef([]);
 
-        // React State for UI Overlay
+        // React State 用於更新 UI 介面 (分數、時間)
         const [uiScore, setUiScore] = useState(0);
         const [uiTime, setUiTime] = useState(GAME_DURATION);
 
-        // Initialize Spawners
+        // 初始化生成器
         useEffect(() => {
-          // Initial spawners: 1 Demon, 1 Chef
           spawnersRef.current = [
-            { id: 'demon-1', x: 50, y: 60, direction: 1, type: 'DEMON', nextSpawnTime: 0 },
-            { id: 'chef-1', x: CANVAS_WIDTH - 50, y: 60, direction: -1, type: 'CHEF', nextSpawnTime: 0 }
+            { id: 'demon-1', x: 50, y: 80, direction: 1, type: 'DEMON', nextSpawnTime: 0 },
+            { id: 'chef-1', x: CANVAS_WIDTH - 50, y: 80, direction: -1, type: 'CHEF', nextSpawnTime: 0 }
           ];
         }, []);
 
-        // Helper: Spawn Item
+        // 輔助函式: 生成掉落物
         const spawnItem = (spawner) => {
           const isDemon = spawner.type === 'DEMON';
           let type;
           
           if (isDemon) {
+            // 惡魔丟壞東西
             type = Math.random() > 0.6 ? ItemType.ENEMY_SKULL : ItemType.ENEMY_X;
           } else {
+            // 廚師丟好東西
             type = Math.random() > 0.5 ? ItemType.FOOD_BURGER : ItemType.FOOD_PIZZA;
           }
 
-          // Speed increases as time decreases
+          // 遊戲進度 (0 ~ 1)
           const progress = 1 - (gameStateRef.current.timeLeft / GAME_DURATION);
-          const itemSpeed = 3 + (progress * 4); // 3 to 7
+          // 隨著時間增加，掉落速度加快 (基礎3 -> 最快8)
+          const itemSpeed = 3 + (progress * 5); 
 
           gameStateRef.current.items.push({
             id: Date.now() + Math.random(),
             x: spawner.x,
-            y: spawner.y + 40,
+            y: spawner.y + 20,
             width: ITEM_SIZE,
             height: ITEM_SIZE,
             type,
@@ -258,15 +274,16 @@
           });
         };
 
-        // Helper: Calculate next spawn time
+        // 輔助函式: 計算下次生成時間 (隨時間變短)
         const getNextSpawnDelay = (timeLeft) => {
           const progress = 1 - (timeLeft / GAME_DURATION);
+          // 基礎延遲從 1.5秒 降到 0.4秒
           const baseDelay = 1500 - (progress * 1100); 
-          const jitter = Math.random() * 600;
+          const jitter = Math.random() * 500; // 隨機擾動
           return baseDelay + jitter;
         };
 
-        // Helper: Check Collision (Box)
+        // 輔助函式: 碰撞檢測 (矩形)
         const isColliding = (rect1, rect2) => {
           return (
             rect1.x < rect2.x + rect2.width &&
@@ -276,7 +293,7 @@
           );
         };
 
-        // Core Loop
+        // 遊戲主迴圈 (Game Loop)
         const gameLoop = useCallback((timestamp) => {
           if (!gameStateRef.current.isPlaying) return;
           const canvas = canvasRef.current;
@@ -286,9 +303,9 @@
 
           const state = gameStateRef.current;
           
-          // Initialize timing
           if (state.lastTime === 0) {
             state.lastTime = timestamp;
+            // 設定初始生成時間
             spawnersRef.current.forEach(s => {
               s.nextSpawnTime = timestamp + Math.random() * 1000;
             });
@@ -297,9 +314,9 @@
           const deltaTime = timestamp - state.lastTime;
           state.lastTime = timestamp;
 
-          // 1. Logic Update
+          // --- 邏輯更新 ---
           
-          // Timer
+          // 1. 倒數計時
           state.timeLeft -= deltaTime / 1000;
           if (state.timeLeft <= 0) {
             state.isPlaying = false;
@@ -307,92 +324,105 @@
             return;
           }
 
+          // 2. 動態難度調整 (增加惡魔數量)
           const elapsed = GAME_DURATION - state.timeLeft;
-
-          // Dynamic Level Design
+          // 10秒後增加第二個惡魔
           if (elapsed > 10 && spawnersRef.current.filter(s => s.type === 'DEMON').length < 2) {
              spawnersRef.current.push({
                id: 'demon-2',
                x: CANVAS_WIDTH / 2,
-               y: 60,
+               y: 80,
                direction: Math.random() > 0.5 ? 1 : -1,
                type: 'DEMON',
-               nextSpawnTime: timestamp + 1000
+               nextSpawnTime: timestamp + 2000
              });
           }
+          // 20秒後增加第三個惡魔
           if (elapsed > 20 && spawnersRef.current.filter(s => s.type === 'DEMON').length < 3) {
              spawnersRef.current.push({
                id: 'demon-3',
                x: 40,
-               y: 60,
+               y: 80,
                direction: 1,
                type: 'DEMON',
-               nextSpawnTime: timestamp + 1000
+               nextSpawnTime: timestamp + 2000
              });
           }
 
-          // Update Spawners
+          // 3. 更新生成器位置與生成物品
           spawnersRef.current.forEach(spawner => {
-            spawner.x += spawner.direction * 2.5; 
+            spawner.x += spawner.direction * 3; 
+            // 邊界反彈
             if (spawner.x < 40 || spawner.x > CANVAS_WIDTH - 40) {
               spawner.direction *= -1;
             }
 
+            // 生成物品檢查
             if (timestamp >= spawner.nextSpawnTime) {
               spawnItem(spawner);
               spawner.nextSpawnTime = timestamp + getNextSpawnDelay(state.timeLeft);
             }
           });
 
-          // Update Items
+          // 4. 更新掉落物 (移動與碰撞)
+          const playerHitbox = {
+            x: state.playerX - PLAYER_WIDTH / 2 + 10, // 稍微縮小碰撞箱讓判定寬鬆一點
+            y: CANVAS_HEIGHT - PLAYER_Y_OFFSET,
+            width: PLAYER_WIDTH - 20,
+            height: PLAYER_HEIGHT
+          };
+
           state.items.forEach(item => {
             item.y += item.speed;
             
-            // Collision with Player
-            const playerRect = {
-              x: state.playerX - PLAYER_WIDTH / 2,
-              y: CANVAS_HEIGHT - PLAYER_Y_OFFSET,
-              width: PLAYER_WIDTH,
-              height: PLAYER_HEIGHT
-            };
-
-            if (item.active && isColliding(item, playerRect)) {
+            // 碰到玩家
+            if (item.active && isColliding(item, playerHitbox)) {
               item.active = false;
               state.score += SCORE_MAP[item.type];
+              
+              // 簡單的特效回饋 (可選)
+              // console.log("Hit", item.type);
             }
 
+            // 超出邊界
             if (item.y > CANVAS_HEIGHT) item.active = false;
           });
 
-          // Update Bullets
+          // 5. 更新子彈
           state.bullets.forEach(bullet => {
             bullet.y -= bullet.speed;
+            
+            // 子彈打到掉落物
             state.items.forEach(item => {
               if (item.active && bullet.active && isColliding(bullet, item)) {
                 item.active = false;
                 bullet.active = false;
+                // 打掉不加分也不扣分
               }
             });
+
             if (bullet.y < 0) bullet.active = false;
           });
 
+          // 清理無效物件
           state.items = state.items.filter(i => i.active);
           state.bullets = state.bullets.filter(b => b.active);
 
-          // 2. Render
+          // --- 畫面渲染 ---
           ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-          // Draw Spawners
-          ctx.font = '40px Arial';
+          // 畫生成器 (惡魔/廚師)
+          ctx.font = '50px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          
           spawnersRef.current.forEach(spawner => {
             const icon = spawner.type === 'DEMON' ? '😈' : '👨‍🍳';
-            ctx.fillText(icon, spawner.x, spawner.y);
+            // 簡單的浮動動畫
+            const bob = Math.sin(timestamp / 200) * 5;
+            ctx.fillText(icon, spawner.x, spawner.y + bob);
           });
 
-          // Draw Items
+          // 畫掉落物
           state.items.forEach(item => {
             let icon = '';
             switch(item.type) {
@@ -401,22 +431,36 @@
               case ItemType.ENEMY_X: icon = '❌'; break;
               case ItemType.ENEMY_SKULL: icon = '💀'; break;
             }
+            ctx.font = `${ITEM_SIZE}px Arial`;
             ctx.fillText(icon, item.x + item.width/2, item.y + item.height/2);
           });
 
-          // Draw Bullets
-          ctx.fillStyle = '#facc15'; 
+          // 畫子彈
+          ctx.fillStyle = '#fbbf24'; // amber-400
           state.bullets.forEach(bullet => {
             ctx.beginPath();
             ctx.arc(bullet.x + bullet.width/2, bullet.y + bullet.height/2, BULLET_SIZE/2, 0, Math.PI * 2);
             ctx.fill();
+            // 子彈光暈
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'orange';
+            ctx.fill();
+            ctx.shadowBlur = 0;
           });
 
-          // Draw Player
-          ctx.font = '60px Arial';
+          // 畫玩家 (雙手)
+          ctx.font = '70px Arial';
           ctx.fillText('👐', state.playerX, CANVAS_HEIGHT - PLAYER_Y_OFFSET + 30);
+          
+          // 畫地板線條暗示
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, CANVAS_HEIGHT - PLAYER_Y_OFFSET + 60);
+          ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - PLAYER_Y_OFFSET + 60);
+          ctx.stroke();
 
-          // 3. Sync UI
+          // --- UI 同步 (每 100ms 更新一次 React State 以節省效能) ---
           if (timestamp - state.lastUiSyncTime > 100) {
             setUiScore(state.score);
             setUiTime(Math.max(0, Math.ceil(state.timeLeft)));
@@ -426,24 +470,30 @@
           requestAnimationFrame(gameLoop);
         }, [onFinish]);
 
-        // Input Handling
+        // 輸入處理: 移動
         const handleInput = useCallback((clientX) => {
           const canvas = canvasRef.current;
           if (!canvas) return;
           
           const rect = canvas.getBoundingClientRect();
+          // 計算畫布縮放比例
           const scaleX = CANVAS_WIDTH / rect.width;
           const canvasX = (clientX - rect.left) * scaleX;
 
-          gameStateRef.current.playerX = Math.max(PLAYER_WIDTH/2, Math.min(CANVAS_WIDTH - PLAYER_WIDTH/2, canvasX));
+          // 限制移動範圍
+          gameStateRef.current.playerX = Math.max(
+            PLAYER_WIDTH/2, 
+            Math.min(CANVAS_WIDTH - PLAYER_WIDTH/2, canvasX)
+          );
         }, []);
 
+        // 輸入處理: 射擊
         const handleShoot = useCallback(() => {
           if (!gameStateRef.current.isPlaying) return;
           
           gameStateRef.current.bullets.push({
             id: Date.now() + Math.random(),
-            x: gameStateRef.current.playerX - BULLET_SIZE / 2,
+            x: gameStateRef.current.playerX - BULLET_SIZE / 2, // 從玩家中心發射
             y: CANVAS_HEIGHT - PLAYER_Y_OFFSET,
             width: BULLET_SIZE,
             height: BULLET_SIZE,
@@ -452,17 +502,22 @@
           });
         }, []);
 
+        // 啟動與清理
         useEffect(() => {
           gameStateRef.current.lastTime = 0;
           gameStateRef.current.isPlaying = true;
           
           const animId = requestAnimationFrame(gameLoop);
           
+          // 手指拖動
           const onTouchMove = (e) => {
             e.preventDefault(); 
-            handleInput(e.touches[0].clientX);
+            if(e.touches.length > 0) {
+              handleInput(e.touches[0].clientX);
+            }
           };
           
+          // 滑鼠移動
           const onMouseMove = (e) => {
             handleInput(e.clientX);
           };
@@ -484,38 +539,46 @@
         }, [gameLoop, handleInput]);
 
         return (
-          <div className="relative w-full h-full bg-slate-800 overflow-hidden flex justify-center">
-            {/* HUD */}
-            <div className="absolute top-4 left-4 z-10 bg-black/40 px-4 py-2 rounded-lg text-white font-mono font-bold border border-white/10 backdrop-blur-sm">
-              時間: {uiTime}s
-            </div>
-            <div className={`absolute top-4 right-4 z-10 px-4 py-2 rounded-lg font-mono font-bold border backdrop-blur-sm transition-colors duration-300 ${
-              uiScore >= 200 ? 'bg-yellow-500/80 text-white border-yellow-300' : 'bg-black/40 text-white border-white/10'
-            }`}>
-              分數: {uiScore}
+          <div className="relative w-full h-full bg-slate-900 overflow-hidden flex justify-center items-center">
+            {/* 抬頭顯示器 (HUD) */}
+            <div className="absolute top-0 w-full md:max-w-[480px] p-4 flex justify-between z-10 pointer-events-none">
+              <div className="bg-black/50 text-white px-4 py-2 rounded-full border border-white/20 font-mono text-xl font-bold flex items-center shadow-lg">
+                ⏳ {uiTime}s
+              </div>
+              <div className={`px-4 py-2 rounded-full border font-mono text-xl font-bold flex items-center shadow-lg transition-colors duration-300 ${
+                uiScore >= 200 
+                  ? 'bg-yellow-500 text-white border-yellow-300 shadow-yellow-500/50' 
+                  : 'bg-black/50 text-white border-white/20'
+              }`}>
+                Score: {uiScore}
+              </div>
             </div>
 
-            {/* Game Canvas */}
+            {/* 遊戲畫布 */}
             <canvas
               ref={canvasRef}
               width={CANVAS_WIDTH}
               height={CANVAS_HEIGHT}
-              className="h-full w-full max-w-[480px] bg-gradient-to-b from-slate-700 to-slate-900 shadow-2xl cursor-crosshair touch-none"
+              className="h-full w-full md:max-w-[480px] bg-gradient-to-b from-slate-800 to-slate-900 cursor-crosshair touch-none shadow-2xl"
+              // 支援滑鼠點擊射擊
               onMouseDown={handleShoot}
+              // 支援手機觸控點擊射擊 (同時也會觸發 touchmove 移動)
               onTouchStart={(e) => {
                 handleInput(e.touches[0].clientX);
                 handleShoot();
               }}
             />
             
-            <div className="absolute bottom-4 text-white/30 text-xs pointer-events-none">
-              點擊射擊 / 拖曳移動
+            <div className="absolute bottom-6 text-white/40 text-sm pointer-events-none animate-pulse">
+              [ 點擊射擊 ] • [ 滑動移動 ]
             </div>
           </div>
         );
       };
 
-      // --- App.tsx ---
+      // ==========================================
+      // 6. 應用程式入口 (App)
+      // ==========================================
       const App = () => {
         const [screen, setScreen] = useState(GameScreen.HOME);
         const [lastScore, setLastScore] = useState(0);
@@ -534,8 +597,9 @@
         };
 
         return (
-          <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-900">
-            <div className="w-full h-full md:max-w-[480px] md:max-h-[850px] bg-white md:rounded-3xl shadow-2xl overflow-hidden relative">
+          <div className="h-full w-full flex items-center justify-center bg-gray-950">
+            {/* 手機外框容器 (在桌機上限制寬度) */}
+            <div className="w-full h-full md:max-w-[480px] md:max-h-[850px] bg-slate-900 md:rounded-3xl shadow-2xl overflow-hidden relative border-4 border-slate-800">
               {screen === GameScreen.HOME && <Home onStart={startGame} />}
               {screen === GameScreen.PLAYING && <Game onFinish={finishGame} />}
               {screen === GameScreen.RESULT && <Result score={lastScore} onRestart={restartGame} />}
@@ -544,9 +608,9 @@
         );
       };
 
-      // --- index.tsx ---
+      // 渲染到 root
       const root = ReactDOM.createRoot(document.getElementById('root'));
       root.render(<App />);
     </script>
-  </body>
+</body>
 </html>
